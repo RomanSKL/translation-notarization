@@ -5,7 +5,6 @@ import { Stage } from "@/app/page";
 
 const STEPS = [
   { id: "translating", label: "Translating document", sub: "English → Spanish" },
-  { id: "stamping", label: "Applying notarial stamp", sub: "Signature & seal" },
 ];
 
 export default function ProcessingStatus({

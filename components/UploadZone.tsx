@@ -16,6 +16,7 @@ interface Props {
 
 export default function UploadZone({ onFile, disabled }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const rippleCounter = useRef(0);
   const [dragging, setDragging] = useState(false);
   const [ripples, setRipples] = useState<number[]>([]);
 
@@ -38,7 +39,7 @@ export default function UploadZone({ onFile, disabled }: Props) {
 
   function handleClick() {
     if (disabled) return;
-    const id = Date.now();
+    const id = ++rippleCounter.current;
     setRipples((r) => [...r, id]);
     setTimeout(() => setRipples((r) => r.filter((x) => x !== id)), 1000);
     inputRef.current?.click();

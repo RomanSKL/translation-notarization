@@ -1,14 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
+import Link from "next/link";
 import UploadZone from "@/components/UploadZone";
 import ProcessingStatus from "@/components/ProcessingStatus";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
-export type Stage = "idle" | "uploading" | "translating" | "stamping" | "done" | "error";
+export type Stage = "idle" | "uploading" | "translating" | "stamping" | "done" | "error" | "auth";
 
 export default function Home() {
+  const { data: session } = useSession();
   const [stage, setStage] = useState<Stage>("idle");
   const [fileName, setFileName] = useState("");
   const [downloadUrl, setDownloadUrl] = useState("");
@@ -16,6 +19,12 @@ export default function Home() {
   const [errorMsg, setErrorMsg] = useState("");
 
   async function handleFile(file: File) {
+    if (!session) {
+      setFileName(file.name);
+      setStage("auth");
+      return;
+    }
+
     setFileName(file.name);
     setStage("uploading");
     setErrorMsg("");
@@ -40,11 +49,10 @@ export default function Home() {
 
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      const ext = file.name.split(".").pop();
       const baseName = file.name.replace(/\.[^/.]+$/, "");
 
       setDownloadUrl(url);
-      setDownloadName(`${baseName}_translated_ES.${ext}`);
+      setDownloadName(`${baseName}_translated_ES.pdf`);
       setStage("done");
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Unknown error");
@@ -101,6 +109,10 @@ export default function Home() {
             <div className="p-8 md:p-12">
               {(stage === "idle" || stage === "uploading") && (
                 <UploadZone onFile={handleFile} disabled={stage === "uploading"} />
+              )}
+
+              {stage === "auth" && (
+                <AuthGate fileName={fileName} onBack={() => setStage("idle")} />
               )}
 
               {(stage === "translating" || stage === "stamping") && (
@@ -218,6 +230,56 @@ function DoneState({
           New
         </button>
       </div>
+    </div>
+  );
+}
+
+function AuthGate({ fileName, onBack }: { fileName: string; onBack: () => void }) {
+  return (
+    <div className="text-center">
+      <div
+        className="inline-flex items-center justify-center w-16 h-16 mb-6"
+        style={{ border: "1px solid var(--gold-dark)" }}
+      >
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="1.5">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </svg>
+      </div>
+
+      <p className="text-xs tracking-[0.3em] uppercase mb-2" style={{ color: "var(--gold)" }}>
+        Sign In Required
+      </p>
+      <p className="text-sm mb-1" style={{ color: "var(--text-muted)" }}>
+        Your document is ready
+      </p>
+      <p className="text-xs mb-8" style={{ color: "var(--text-muted)", opacity: 0.6 }}>
+        {fileName}
+      </p>
+
+      <div className="flex gap-3">
+        <Link href="/login" className="btn-primary flex-1 text-center block">
+          <span>Sign In</span>
+        </Link>
+        <Link
+          href="/register"
+          className="flex-1 text-xs tracking-widest uppercase flex items-center justify-center"
+          style={{
+            border: "1px solid var(--gold-dark)",
+            color: "var(--gold-dark)",
+          }}
+        >
+          Create Account
+        </Link>
+      </div>
+
+      <button
+        onClick={onBack}
+        className="mt-4 text-xs tracking-widest uppercase"
+        style={{ color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}
+      >
+        ← Back
+      </button>
     </div>
   );
 }

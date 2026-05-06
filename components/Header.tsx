@@ -19,6 +19,17 @@ export default function Header() {
           <span className="text-xs tracking-[0.3em] uppercase" style={{ color: "var(--gold-dark)" }}>
             NotarizePro
           </span>
+          <span
+            className="text-xs tracking-widest uppercase px-2 py-0.5"
+            style={{
+              border: "1px solid #c04040",
+              color: "#c04040",
+              fontSize: "9px",
+              letterSpacing: "0.15em",
+            }}
+          >
+            DEMO
+          </span>
         </Link>
 
         <nav className="flex items-center gap-6">

@@ -1,22 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import { PDFDocument, rgb, StandardFonts, PDFFont } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts, PDFFont, degrees } from "pdf-lib";
 import mammoth from "mammoth";
 import { extractText } from "unpdf";
-import {
-  Document,
-  Packer,
-  Paragraph,
-  TextRun,
-  AlignmentType,
-  BorderStyle,
-  Table,
-  TableRow,
-  TableCell,
-  WidthType,
-  ShadingType,
-  HeadingLevel,
-} from "docx";
+import { connectDB } from "@/lib/mongodb";
+import Translation from "@/models/Translation";
 
 export const maxDuration = 60;
 
@@ -84,14 +72,9 @@ function certNo(): string {
   return `NT-${Date.now().toString().slice(-8)}`;
 }
 
-// ─── PDF ────────────────────────────────────────────────────────────────────
+// ─── PDF builder ─────────────────────────────────────────────────────────────
 
-async function processPdf(buffer: Buffer): Promise<Buffer> {
-  const extracted = await extractText(new Uint8Array(buffer), { mergePages: true });
-  const rawText = Array.isArray(extracted.text) ? extracted.text.join("\n") : (extracted.text as string);
-
-  const doc = await translateStructured(rawText);
-
+async function buildPdf(doc: DocStructure): Promise<Buffer> {
   const pdfDoc = await PDFDocument.create();
   const fontRegular  = await pdfDoc.embedFont(StandardFonts.TimesRoman);
   const fontBold     = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
@@ -255,130 +238,34 @@ async function processPdf(buffer: Buffer): Promise<Buffer> {
   lastPage.drawText("completa al documento original en ingles.", { x: tx, y: stampY + stampH - 87, size: 6.5, font: fontItalic, color: rgb(0.35, 0.35, 0.5) });
   lastPage.drawText("Valido para Consulado Espanol | NotarizePro", { x: tx, y: stampY + stampH - 101, size: 6, font: fontHelv, color: rgb(0.55, 0.41, 0.08) });
 
+  // SAMPLE watermark on every page
+  for (const p of pdfDoc.getPages()) {
+    const { width: pw, height: ph } = p.getSize();
+    p.drawText("SAMPLE", {
+      x: pw / 2 - 120,
+      y: ph / 2 - 30,
+      size: 72,
+      font: fontHelvBold,
+      color: rgb(0.85, 0.15, 0.15),
+      opacity: 0.08,
+      rotate: degrees(45),
+    });
+  }
+
   return Buffer.from(await pdfDoc.save());
 }
 
-// ─── DOCX ───────────────────────────────────────────────────────────────────
+// ─── Per-format processors ────────────────────────────────────────────────────
+
+async function processPdf(buffer: Buffer): Promise<Buffer> {
+  const extracted = await extractText(new Uint8Array(buffer), { mergePages: true });
+  const rawText = Array.isArray(extracted.text) ? extracted.text.join("\n") : (extracted.text as string);
+  return buildPdf(await translateStructured(rawText));
+}
 
 async function processDocx(buffer: Buffer): Promise<Buffer> {
   const extracted = await mammoth.extractRawText({ buffer });
-  const doc = await translateDocx(extracted.value);
-
-  const date = certDate();
-  const cert = certNo();
-
-  const children: Paragraph[] = [];
-
-  // Title
-  if (doc.title) {
-    children.push(new Paragraph({
-      alignment: AlignmentType.CENTER,
-      heading: HeadingLevel.HEADING_1,
-      children: [new TextRun({ text: doc.title, bold: true, size: 28, font: "Times New Roman", color: "111122" })],
-      spacing: { after: 160 },
-    }));
-  }
-
-  // Date
-  if (doc.date) {
-    children.push(new Paragraph({
-      children: [new TextRun({ text: doc.date, size: 24, font: "Times New Roman" })],
-      spacing: { after: 200 },
-    }));
-  }
-
-  // Recipient
-  if (doc.recipient) {
-    children.push(new Paragraph({
-      children: [new TextRun({ text: doc.recipient, size: 24, font: "Times New Roman" })],
-      spacing: { after: 200 },
-    }));
-  }
-
-  // Body
-  for (const para of doc.paragraphs) {
-    if (para.trim()) {
-      children.push(new Paragraph({
-        children: [new TextRun({ text: para, size: 24, font: "Times New Roman" })],
-        spacing: { after: 200 },
-      }));
-    }
-  }
-
-  // Closing
-  if (doc.closing) {
-    children.push(new Paragraph({
-      children: [new TextRun({ text: doc.closing, size: 24, font: "Times New Roman" })],
-      spacing: { before: 200, after: 400 },
-    }));
-  }
-
-  // Signatory
-  if (doc.signatoryName) children.push(new Paragraph({ children: [new TextRun({ text: doc.signatoryName, bold: true, size: 24, font: "Times New Roman" })], spacing: { after: 60 } }));
-  if (doc.signatoryTitle) children.push(new Paragraph({ children: [new TextRun({ text: doc.signatoryTitle, size: 22, font: "Times New Roman" })], spacing: { after: 60 } }));
-  if (doc.signatoryCompany) children.push(new Paragraph({ children: [new TextRun({ text: doc.signatoryCompany, size: 22, font: "Times New Roman" })], spacing: { after: 60 } }));
-  if (doc.signatoryAddress) children.push(new Paragraph({ children: [new TextRun({ text: doc.signatoryAddress, size: 22, font: "Times New Roman" })], spacing: { after: 0 } }));
-
-  // Spacer before stamp
-  children.push(new Paragraph({ children: [new TextRun({ text: "" })], spacing: { after: 600 } }));
-
-  // Signature line
-  children.push(new Paragraph({
-    alignment: AlignmentType.RIGHT,
-    children: [new TextRun({ text: "________________________________", color: "8B6914", size: 22 })],
-    spacing: { after: 60 },
-  }));
-  children.push(new Paragraph({
-    alignment: AlignmentType.RIGHT,
-    children: [new TextRun({ text: "Maria Gonzalez Herrera", italics: true, size: 22, font: "Times New Roman", color: "1a1a3a" })],
-    spacing: { after: 40 },
-  }));
-  children.push(new Paragraph({
-    alignment: AlignmentType.RIGHT,
-    children: [new TextRun({ text: "Traductora Oficial Certificada", size: 16, color: "6b6b8a", font: "Arial" })],
-    spacing: { after: 120 },
-  }));
-
-  // Stamp table
-  const stampTable = new Table({
-    alignment: AlignmentType.RIGHT,
-    width: { size: 4500, type: WidthType.DXA },
-    borders: {
-      top: { style: BorderStyle.SINGLE, size: 6, color: "8B6914" },
-      bottom: { style: BorderStyle.SINGLE, size: 6, color: "8B6914" },
-      left: { style: BorderStyle.SINGLE, size: 6, color: "8B6914" },
-      right: { style: BorderStyle.SINGLE, size: 6, color: "8B6914" },
-    },
-    rows: [
-      new TableRow({
-        children: [
-          new TableCell({
-            width: { size: 4500, type: WidthType.DXA },
-            shading: { type: ShadingType.SOLID, color: "F8F5EC" },
-            margins: { top: 120, bottom: 120, left: 180, right: 180 },
-            children: [
-              new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "TRADUCCION CERTIFICADA", bold: true, size: 18, color: "8B6914", font: "Arial" })], spacing: { after: 60 } }),
-              new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Traduccion Oficial Ingles - Espanol", italics: true, size: 16, color: "4a4a6a", font: "Times New Roman" })], spacing: { after: 80 } }),
-              new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `Fecha: ${date}     Cert. No: ${cert}`, size: 14, color: "4a4a5a", font: "Arial" })], spacing: { after: 60 } }),
-              new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Certifico que esta traduccion es fiel y completa al documento original en ingles.", italics: true, size: 14, color: "6b6b8a", font: "Times New Roman" })], spacing: { after: 60 } }),
-              new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Valido para Consulado Espanol  |  NotarizePro", size: 12, color: "8B6914", font: "Arial" })] }),
-            ],
-          }),
-        ],
-      }),
-    ],
-  });
-
-  const document = new Document({
-    styles: {
-      paragraphStyles: [
-        { id: "Heading1", name: "Heading 1", basedOn: "Normal", next: "Normal", run: { size: 28, bold: true, font: { name: "Times New Roman" } } },
-      ],
-    },
-    sections: [{ children: [...children, stampTable] }],
-  });
-
-  return await Packer.toBuffer(document);
+  return buildPdf(await translateDocx(extracted.value));
 }
 
 // ─── Handler ─────────────────────────────────────────────────────────────────
@@ -404,20 +291,23 @@ export async function POST(req: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    let resultBuffer: Buffer;
-    let contentType: string;
+    const resultBuffer = isPdf ? await processPdf(buffer) : await processDocx(buffer);
 
-    if (isPdf) {
-      resultBuffer = await processPdf(buffer);
-      contentType = "application/pdf";
-    } else {
-      resultBuffer = await processDocx(buffer);
-      contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    // Save translation record to MongoDB
+    try {
+      await connectDB();
+      await Translation.create({
+        fileName: file.name,
+        fileType: isPdf ? "pdf" : "docx",
+        ipAddress: req.headers.get("x-forwarded-for") ?? "unknown",
+      });
+    } catch (dbErr) {
+      console.error("MongoDB save error:", dbErr);
     }
 
     return new NextResponse(resultBuffer as unknown as BodyInit, {
       status: 200,
-      headers: { "Content-Type": contentType, "Content-Disposition": "attachment" },
+      headers: { "Content-Type": "application/pdf", "Content-Disposition": "attachment" },
     });
   } catch (err) {
     console.error("Process error:", err);
