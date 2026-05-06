@@ -1,10 +1,12 @@
 "use client";
 
 import { useSession, signOut } from "next-auth/react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 
 export default function Header() {
   const { data: session } = useSession();
+  const pathname = usePathname();
 
   return (
     <header className="w-full px-8 py-5" style={{ borderBottom: "1px solid var(--dark-border)" }}>
@@ -52,19 +54,31 @@ export default function Header() {
             <>
               <Link
                 href="/login"
-                className="text-xs tracking-widest uppercase transition-colors duration-200"
-                style={{ color: "var(--text-muted)" }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = "var(--gold)")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+                className="text-xs tracking-widest uppercase px-4 py-2 transition-colors duration-200"
+                style={{
+                  border: pathname === "/login" ? "1px solid var(--gold)" : "1px solid transparent",
+                  color: pathname === "/login" ? "var(--gold)" : "var(--text-muted)",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = "var(--gold)"; e.currentTarget.style.borderColor = "var(--gold)"; }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = pathname === "/login" ? "var(--gold)" : "var(--text-muted)";
+                  e.currentTarget.style.borderColor = pathname === "/login" ? "var(--gold)" : "transparent";
+                }}
               >
                 Sign In
               </Link>
               <Link
                 href="/register"
                 className="text-xs tracking-widest uppercase px-4 py-2 transition-colors duration-200"
-                style={{ border: "1px solid var(--gold-dark)", color: "var(--gold-dark)" }}
+                style={{
+                  border: pathname === "/register" ? "1px solid var(--gold)" : "1px solid transparent",
+                  color: pathname === "/register" ? "var(--gold)" : "var(--text-muted)",
+                }}
                 onMouseEnter={(e) => { e.currentTarget.style.color = "var(--gold)"; e.currentTarget.style.borderColor = "var(--gold)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = "var(--gold-dark)"; e.currentTarget.style.borderColor = "var(--gold-dark)"; }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = pathname === "/register" ? "var(--gold)" : "var(--text-muted)";
+                  e.currentTarget.style.borderColor = pathname === "/register" ? "var(--gold)" : "transparent";
+                }}
               >
                 Register
               </Link>

@@ -5,6 +5,7 @@ import mammoth from "mammoth";
 import { extractText } from "unpdf";
 import { connectDB } from "@/lib/mongodb";
 import Translation from "@/models/Translation";
+import { auth } from "@/auth";
 
 export const maxDuration = 60;
 
@@ -332,8 +333,11 @@ export async function POST(req: NextRequest) {
 
     // Save translation record to MongoDB
     try {
+      const session = await auth();
+      const userId = session?.user?.id ?? session?.user?.email ?? undefined;
       await connectDB();
       await Translation.create({
+        userId,
         fileName: file.name,
         fileType: isPdf ? "pdf" : "docx",
         ipAddress: req.headers.get("x-forwarded-for") ?? "unknown",

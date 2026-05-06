@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface ITranslation extends Document {
-  userId: mongoose.Types.ObjectId;
+  userId: string;
   fileName: string;
   fileType: string;
   translatedAt: Date;
@@ -9,7 +9,7 @@ export interface ITranslation extends Document {
 }
 
 const TranslationSchema = new Schema<ITranslation>({
-  userId:       { type: Schema.Types.ObjectId, ref: "User", required: false },
+  userId:       { type: String, required: false },
   fileName:     { type: String, required: true },
   fileType:     { type: String, required: true },
   translatedAt: { type: Date, default: Date.now },
