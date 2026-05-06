@@ -1,0 +1,9 @@
+services:
+  app:
+    image: translation-notarization
+    container_name: translation-notarization
+    ports:
+      - "3018:3018"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    restart: unless-stopped

@@ -1,0 +1,92 @@
+"use client";
+
+import { useRef, useState, DragEvent, ChangeEvent } from "react";
+
+const ACCEPTED = [".pdf", ".doc", ".docx"];
+const ACCEPTED_MIME = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
+
+interface Props {
+  onFile: (file: File) => void;
+  disabled?: boolean;
+}
+
+export default function UploadZone({ onFile, disabled }: Props) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+
+  function validate(file: File): boolean {
+    return ACCEPTED_MIME.includes(file.type) || ACCEPTED.some((ext) => file.name.endsWith(ext));
+  }
+
+  function handleChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file && validate(file)) onFile(file);
+  }
+
+  function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    setDragging(false);
+    if (disabled) return;
+    const file = e.dataTransfer.files?.[0];
+    if (file && validate(file)) onFile(file);
+  }
+
+  return (
+    <div
+      className={`upload-zone ${dragging ? "drag-over" : ""}`}
+      style={{
+        border: `1px dashed ${dragging ? "var(--gold)" : "var(--dark-border)"}`,
+        padding: "48px 24px",
+        textAlign: "center",
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.5 : 1,
+      }}
+      onClick={() => !disabled && inputRef.current?.click()}
+      onDragOver={(e) => { e.preventDefault(); if (!disabled) setDragging(true); }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={handleDrop}
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        accept={ACCEPTED.join(",")}
+        className="hidden"
+        onChange={handleChange}
+        disabled={disabled}
+      />
+
+      {/* Upload icon */}
+      <div className="flex justify-center mb-6">
+        <div
+          style={{
+            width: 64,
+            height: 64,
+            border: "1px solid var(--dark-border)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            position: "relative",
+          }}
+        >
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--gold-dark)" strokeWidth="1.2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+        </div>
+      </div>
+
+      <p className="text-sm mb-2" style={{ color: "#c8c8d8" }}>
+        Drop your document here
+      </p>
+      <p className="text-xs mb-6" style={{ color: "var(--text-muted)" }}>
+        or click to browse files
+      </p>
+
+    </div>
+  );
+}

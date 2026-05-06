@@ -1,0 +1,23 @@
+export default function Footer() {
+  return (
+    <footer
+      className="w-full px-8 py-6"
+      style={{ borderTop: "1px solid var(--dark-border)" }}
+    >
+      <div className="max-w-2xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
+        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+          © {new Date().getFullYear()} NotarizePro — All rights reserved
+        </p>
+        <div className="flex items-center gap-2">
+          <div
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ background: "var(--gold-dark)" }}
+          />
+          <p className="text-xs tracking-wider uppercase" style={{ color: "var(--text-muted)" }}>
+            Certified Document Translation
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+}
