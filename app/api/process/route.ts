@@ -45,6 +45,7 @@ async function translateStructured(rawText: string): Promise<DocStructure> {
 Rules:
 - Translate ALL fields to Spanish
 - Keep each paragraph as a separate string in the array
+- If the source text contains "[PAGE BREAK]", insert it as a separate entry "[PAGE BREAK]" in the paragraphs array at the same relative position
 - If a field is not present in the document, use empty string ""
 - Return ONLY valid JSON, no markdown, no explanation
 
@@ -74,7 +75,7 @@ function certNo(): string {
 
 // ─── PDF builder ─────────────────────────────────────────────────────────────
 
-async function buildPdf(doc: DocStructure): Promise<Buffer> {
+async function buildPdf(doc: DocStructure, addPageNumbers = false): Promise<Buffer> {
   const pdfDoc = await PDFDocument.create();
   const fontRegular  = await pdfDoc.embedFont(StandardFonts.TimesRoman);
   const fontBold     = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
@@ -101,7 +102,7 @@ async function buildPdf(doc: DocStructure): Promise<Buffer> {
   }
 
   function wrap(text: string, font: PDFFont, size: number): string[] {
-    const words = text.split(" ");
+    const words = text.replace(/[\r\n]+/g, " ").split(" ");
     const lines: string[] = [];
     let cur = "";
     for (const w of words) {
@@ -159,7 +160,9 @@ async function buildPdf(doc: DocStructure): Promise<Buffer> {
 
   // ── Body paragraphs ──
   for (const para of doc.paragraphs) {
-    if (para.trim()) {
+    if (para.trim() === "[PAGE BREAK]") {
+      newPage();
+    } else if (para.trim()) {
       drawWrapped(para, fontRegular, 11, { gap: 10, reserveStamp: true });
     }
   }
@@ -238,6 +241,19 @@ async function buildPdf(doc: DocStructure): Promise<Buffer> {
   lastPage.drawText("completa al documento original en ingles.", { x: tx, y: stampY + stampH - 87, size: 6.5, font: fontItalic, color: rgb(0.35, 0.35, 0.5) });
   lastPage.drawText("Valido para Consulado Espanol | NotarizePro", { x: tx, y: stampY + stampH - 101, size: 6, font: fontHelv, color: rgb(0.55, 0.41, 0.08) });
 
+  // Page numbers if original had them
+  if (addPageNumbers) {
+    const allPages = pdfDoc.getPages();
+    const total = allPages.length;
+    for (let i = 0; i < allPages.length; i++) {
+      const p = allPages[i];
+      const { width: pw } = p.getSize();
+      const label = `${i + 1} / ${total}`;
+      const lw = fontHelv.widthOfTextAtSize(label, 8);
+      p.drawText(label, { x: (pw - lw) / 2, y: 28, size: 8, font: fontHelv, color: rgb(0.5, 0.5, 0.5) });
+    }
+  }
+
   // SAMPLE watermark on every page
   for (const p of pdfDoc.getPages()) {
     const { width: pw, height: ph } = p.getSize();
@@ -257,10 +273,31 @@ async function buildPdf(doc: DocStructure): Promise<Buffer> {
 
 // ─── Per-format processors ────────────────────────────────────────────────────
 
+function stripPageNumbers(text: string): { cleaned: string; hadNumbers: boolean } {
+  const lines = text.split("\n");
+  let hadNumbers = false;
+  const cleaned = lines.filter((line) => {
+    const t = line.trim();
+    if (/^\s*page\s+\d+\s+(of\s+\d+)?\s*$/i.test(t) || /^\s*\d+\s*(\/\s*\d+)?\s*$/.test(t)) {
+      hadNumbers = true;
+      return false;
+    }
+    return true;
+  }).join("\n");
+  return { cleaned, hadNumbers };
+}
+
 async function processPdf(buffer: Buffer): Promise<Buffer> {
-  const extracted = await extractText(new Uint8Array(buffer), { mergePages: true });
-  const rawText = Array.isArray(extracted.text) ? extracted.text.join("\n") : (extracted.text as string);
-  return buildPdf(await translateStructured(rawText));
+  const extracted = await extractText(new Uint8Array(buffer), { mergePages: false });
+  const pages = Array.isArray(extracted.text) ? extracted.text : [extracted.text as string];
+  let hadPageNumbers = false;
+  const cleanedPages = pages.map((p) => {
+    const { cleaned, hadNumbers } = stripPageNumbers(p);
+    if (hadNumbers) hadPageNumbers = true;
+    return cleaned;
+  });
+  const rawText = cleanedPages.join("\n[PAGE BREAK]\n");
+  return buildPdf(await translateStructured(rawText), hadPageNumbers);
 }
 
 async function processDocx(buffer: Buffer): Promise<Buffer> {
