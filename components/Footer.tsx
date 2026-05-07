@@ -8,27 +8,14 @@ export default function Footer() {
         <p className="text-xs" style={{ color: "var(--text-muted)" }}>
           © {new Date().getFullYear()} NotarizePro — All rights reserved
         </p>
-        <div className="flex items-center gap-4">
-          <a
-            href="https://romanskl.github.io/translation-notarization/architecture.html"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs tracking-wider uppercase transition-colors duration-200"
-            style={{ color: "var(--text-muted)" }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--gold)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
-          >
-            Architecture
-          </a>
-          <div className="flex items-center gap-2">
-            <div
-              className="w-1.5 h-1.5 rounded-full"
-              style={{ background: "var(--gold-dark)" }}
-            />
-            <p className="text-xs tracking-wider uppercase" style={{ color: "var(--text-muted)" }}>
-              Certified Document Translation
-            </p>
-          </div>
+        <div className="flex items-center gap-2">
+          <div
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ background: "var(--gold-dark)" }}
+          />
+          <p className="text-xs tracking-wider uppercase" style={{ color: "var(--text-muted)" }}>
+            Certified Document Translation
+          </p>
         </div>
       </div>
     </footer>
