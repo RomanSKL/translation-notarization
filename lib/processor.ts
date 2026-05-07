@@ -1,7 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { PDFDocument, rgb, StandardFonts, PDFFont, degrees } from "pdf-lib";
-import mammoth from "mammoth";
-import { extractText } from "unpdf";
 
 export type ElementType =
   | "title"
@@ -295,6 +293,7 @@ function stripPageNumbers(text: string): { cleaned: string; hadNumbers: boolean 
 }
 
 export async function processPdf(buffer: Buffer): Promise<Buffer> {
+  const { extractText } = await import("unpdf");
   const extracted = await extractText(new Uint8Array(buffer), { mergePages: false });
   const pages = Array.isArray(extracted.text) ? extracted.text : [extracted.text as string];
 
@@ -312,6 +311,7 @@ export async function processPdf(buffer: Buffer): Promise<Buffer> {
 }
 
 export async function processDocx(buffer: Buffer): Promise<Buffer> {
+  const mammoth = await import("mammoth");
   const extracted = await mammoth.extractRawText({ buffer });
   return buildPdf(await translateStructured(extracted.value));
 }

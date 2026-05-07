@@ -40,6 +40,15 @@ export default function Header() {
               <span className="text-xs" style={{ color: "var(--text-muted)" }}>
                 {session.user?.name}
               </span>
+              <Link
+                href="/history"
+                className="text-xs tracking-widest uppercase transition-colors duration-200"
+                style={{ color: "var(--text-muted)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "var(--gold)")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+              >
+                History
+              </Link>
               <button
                 onClick={() => signOut({ callbackUrl: "/login" })}
                 className="text-xs tracking-widest uppercase transition-colors duration-200"
