@@ -5,7 +5,7 @@ import Translation from "@/models/Translation";
 
 export async function GET() {
   const session = await auth();
-  const userId = session?.user?.id ?? session?.user?.email;
+  const userId = session?.user?.email;
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     }
 
     const session = await auth();
-    const userId = session?.user?.id ?? session?.user?.email ?? undefined;
+    const userId = session?.user?.email ?? undefined;
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const fileBase64 = buffer.toString("base64");
