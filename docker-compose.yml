@@ -16,6 +16,8 @@ services:
       - MONGODB_URI=${MONGODB_URI}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - REDIS_URL=redis://notarize-redis:6379
     depends_on:
       - redis
