@@ -35,25 +35,33 @@ export default function Home() {
 
       setStage("translating");
 
-      const res = await fetch("/api/process", {
-        method: "POST",
-        body: formData,
-      });
+      const res = await fetch("/api/process", { method: "POST", body: formData });
 
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || "Processing failed");
       }
 
-      setStage("stamping");
+      const { jobId } = await res.json();
 
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const baseName = file.name.replace(/\.[^/.]+$/, "");
+      // Poll for job completion
+      while (true) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const statusRes = await fetch(`/api/job/${jobId}`);
+        const { status, failedReason } = await statusRes.json();
 
-      setDownloadUrl(url);
-      setDownloadName(`${baseName}_translated_ES.pdf`);
-      setStage("done");
+        if (status === "completed") {
+          const baseName = file.name.replace(/\.[^/.]+$/, "");
+          setDownloadUrl(`/api/download/${jobId}`);
+          setDownloadName(`${baseName}_translated_ES.pdf`);
+          setStage("done");
+          return;
+        }
+
+        if (status === "failed") {
+          throw new Error(failedReason || "Translation failed");
+        }
+      }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Unknown error");
       setStage("error");
@@ -214,7 +222,7 @@ function DoneState({
       </div>
 
       <div className="flex gap-3">
-        <a href={downloadUrl} download={downloadName} className="btn-primary flex-1 text-center block">
+        <a href={downloadUrl} download={downloadName} className="btn-primary flex-1 text-center block" target="_blank" rel="noreferrer">
           <span>Download Document</span>
         </a>
         <button
