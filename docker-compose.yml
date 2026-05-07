@@ -1,4 +1,11 @@
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: notarize-redis
+    restart: unless-stopped
+    networks:
+      - notarify-net
+
   app:
     image: translation-notarization
     container_name: translation-notarization
@@ -9,4 +16,26 @@ services:
       - MONGODB_URI=${MONGODB_URI}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - REDIS_URL=redis://notarize-redis:6379
+    depends_on:
+      - redis
     restart: unless-stopped
+    networks:
+      - notarify-net
+
+  worker:
+    image: translation-notarization-worker
+    container_name: notarize-worker
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - MONGODB_URI=${MONGODB_URI}
+      - REDIS_URL=redis://notarize-redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - notarify-net
+
+networks:
+  notarify-net:
+    driver: bridge
