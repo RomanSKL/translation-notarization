@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NotarizePro — Architecture</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0a0a12;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    color: #e0e0f0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 48px 24px;
+  }
+  h1 {
+    font-size: 11px;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: #b8922a;
+    margin-bottom: 6px;
+  }
+  h2 {
+    font-size: 28px;
+    font-weight: 300;
+    color: #e8e8f4;
+    margin-bottom: 48px;
+    letter-spacing: 0.05em;
+  }
+
+  .diagram {
+    width: 100%;
+    max-width: 960px;
+    position: relative;
+  }
+
+  svg {
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  /* Box styles */
+  .box-user       { fill: #12121e; stroke: #3a3a5c; stroke-width: 1.5; }
+  .box-infra      { fill: #0f0f1a; stroke: #4a3a1a; stroke-width: 1.5; }
+  .box-app        { fill: #0d1020; stroke: #2a3a6a; stroke-width: 1.5; }
+  .box-redis      { fill: #100d18; stroke: #4a2a5a; stroke-width: 1.5; }
+  .box-worker     { fill: #0d1a10; stroke: #2a5a2a; stroke-width: 1.5; }
+  .box-mongo      { fill: #0f1a0d; stroke: #3a5a2a; stroke-width: 1.5; }
+  .box-llm        { fill: #1a0d0d; stroke: #6a2a2a; stroke-width: 1.5; }
+  .box-github     { fill: #0f0f18; stroke: #3a3a5a; stroke-width: 1.5; }
+
+  .label-main { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+  .label-sub  { font-size: 9px;  font-weight: 400; letter-spacing: 0.08em; opacity: 0.6; }
+  .label-tag  { font-size: 8px;  font-weight: 400; letter-spacing: 0.1em;  opacity: 0.45; font-style: italic; }
+
+  .col-user   { fill: #9090b0; }
+  .col-infra  { fill: #c8922a; }
+  .col-app    { fill: #4a7adf; }
+  .col-redis  { fill: #c04090; }
+  .col-worker { fill: #4ac060; }
+  .col-mongo  { fill: #4ab040; }
+  .col-llm    { fill: #e04040; }
+  .col-github { fill: #7090c0; }
+
+  .arrow { stroke-width: 1.2; fill: none; marker-end: url(#arrowhead); }
+  .arrow-main   { stroke: #4a7adf; }
+  .arrow-queue  { stroke: #c04090; }
+  .arrow-worker { stroke: #4ac060; }
+  .arrow-db     { stroke: #4ab040; }
+  .arrow-llm    { stroke: #e04040; }
+  .arrow-poll   { stroke: #4a7adf; stroke-dasharray: 5,3; }
+  .arrow-dl     { stroke: #4ac060; stroke-dasharray: 5,3; }
+
+  .step-label { font-size: 8.5px; letter-spacing: 0.05em; opacity: 0.75; }
+
+  .legend { margin-top: 40px; display: flex; gap: 28px; flex-wrap: wrap; justify-content: center; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: 0.08em; opacity: 0.7; }
+  .legend-line { width: 28px; height: 2px; }
+  .legend-dashed { width: 28px; height: 2px; background: repeating-linear-gradient(90deg, currentColor 0, currentColor 4px, transparent 4px, transparent 8px); }
+
+  .zone {
+    fill: none;
+    stroke-dasharray: 4,4;
+    stroke-width: 1;
+    rx: 8;
+  }
+  .zone-vps   { stroke: #2a3a5a; }
+  .zone-label { font-size: 8px; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.35; }
+</style>
+</head>
+<body>
+
+<h1>NotarizePro</h1>
+<h2>System Architecture</h2>
+
+<div class="diagram">
+<svg viewBox="0 0 940 580" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#606080" />
+    </marker>
+    <marker id="arrow-blue"   markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4a7adf"/></marker>
+    <marker id="arrow-pink"   markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#c04090"/></marker>
+    <marker id="arrow-green"  markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4ac060"/></marker>
+    <marker id="arrow-mongo"  markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4ab040"/></marker>
+    <marker id="arrow-red"    markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#e04040"/></marker>
+  </defs>
+
+  <!-- ─── VPS Zone ─── -->
+  <rect x="220" y="20" width="540" height="400" rx="8" class="zone zone-vps"/>
+  <text x="232" y="38" class="zone-label" fill="#4a6aaa">VPS · Docker Network: notarify-net</text>
+
+  <!-- ─── CLIENT ─── -->
+  <rect x="20" y="160" width="120" height="72" rx="4" class="box-user"/>
+  <text x="80" y="186" text-anchor="middle" class="label-main col-user">Browser</text>
+  <text x="80" y="202" text-anchor="middle" class="label-sub col-user">User</text>
+  <text x="80" y="218" text-anchor="middle" class="label-tag" fill="#9090b0">notarify.pro</text>
+
+  <!-- ─── CLOUDFLARE ─── -->
+  <rect x="240" y="100" width="120" height="72" rx="4" class="box-infra"/>
+  <text x="300" y="126" text-anchor="middle" class="label-main col-infra">Cloudflare</text>
+  <text x="300" y="142" text-anchor="middle" class="label-sub col-infra">SSL · CDN</text>
+  <text x="300" y="158" text-anchor="middle" class="label-tag" fill="#c8922a">Flexible SSL</text>
+
+  <!-- ─── NGINX ─── -->
+  <rect x="240" y="210" width="120" height="72" rx="4" class="box-infra"/>
+  <text x="300" y="236" text-anchor="middle" class="label-main col-infra">Nginx</text>
+  <text x="300" y="252" text-anchor="middle" class="label-sub col-infra">Reverse Proxy</text>
+  <text x="300" y="268" text-anchor="middle" class="label-tag" fill="#c8922a">:80 → :3018</text>
+
+  <!-- ─── NEXT.JS ─── -->
+  <rect x="420" y="160" width="140" height="80" rx="4" class="box-app"/>
+  <text x="490" y="188" text-anchor="middle" class="label-main col-app">Next.js</text>
+  <text x="490" y="204" text-anchor="middle" class="label-sub col-app">Frontend + Backend</text>
+  <text x="490" y="220" text-anchor="middle" class="label-tag" fill="#4a7adf">port 3018</text>
+  <text x="490" y="233" text-anchor="middle" class="label-tag" fill="#4a7adf">App Router · Auth</text>
+
+  <!-- ─── REDIS ─── -->
+  <rect x="420" y="300" width="140" height="72" rx="4" class="box-redis"/>
+  <text x="490" y="326" text-anchor="middle" class="label-main col-redis">Redis</text>
+  <text x="490" y="342" text-anchor="middle" class="label-sub col-redis">BullMQ Queue</text>
+  <text x="490" y="358" text-anchor="middle" class="label-tag" fill="#c04090">port 6379</text>
+
+  <!-- ─── WORKER ─── -->
+  <rect x="620" y="210" width="120" height="80" rx="4" class="box-worker"/>
+  <text x="680" y="238" text-anchor="middle" class="label-main col-worker">Worker</text>
+  <text x="680" y="254" text-anchor="middle" class="label-sub col-worker">Translation Job</text>
+  <text x="680" y="270" text-anchor="middle" class="label-tag" fill="#4ac060">tsx worker.ts</text>
+  <text x="680" y="283" text-anchor="middle" class="label-tag" fill="#4ac060">concurrency: 2</text>
+
+  <!-- ─── GITHUB ─── -->
+  <rect x="420" y="460" width="140" height="72" rx="4" class="box-github"/>
+  <text x="490" y="486" text-anchor="middle" class="label-main col-github">GitHub</text>
+  <text x="490" y="502" text-anchor="middle" class="label-sub col-github">Source Code</text>
+  <text x="490" y="518" text-anchor="middle" class="label-tag" fill="#7090c0">RomanSKL/translation</text>
+
+  <!-- ─── MONGODB ─── -->
+  <rect x="800" y="160" width="120" height="80" rx="4" class="box-mongo"/>
+  <text x="860" y="188" text-anchor="middle" class="label-main col-mongo">MongoDB</text>
+  <text x="860" y="204" text-anchor="middle" class="label-sub col-mongo">Atlas</text>
+  <text x="860" y="220" text-anchor="middle" class="label-tag" fill="#4ab040">Users · Sessions</text>
+  <text x="860" y="233" text-anchor="middle" class="label-tag" fill="#4ab040">PDF · Translations</text>
+
+  <!-- ─── CLAUDE API ─── -->
+  <rect x="800" y="290" width="120" height="72" rx="4" class="box-llm"/>
+  <text x="860" y="316" text-anchor="middle" class="label-main col-llm">Claude API</text>
+  <text x="860" y="332" text-anchor="middle" class="label-sub col-llm">Anthropic LLM</text>
+  <text x="860" y="348" text-anchor="middle" class="label-tag" fill="#e04040">claude-sonnet-4-6</text>
+
+  <!-- ══════════ ARROWS ══════════ -->
+
+  <!-- 1. Browser → Cloudflare -->
+  <line x1="140" y1="186" x2="238" y2="150" stroke="#c8922a" stroke-width="1.2" marker-end="url(#arrowhead)"/>
+  <text x="178" y="160" text-anchor="middle" class="step-label" fill="#c8922a">HTTPS</text>
+
+  <!-- 2. Cloudflare → Nginx -->
+  <line x1="300" y1="172" x2="300" y2="208" stroke="#c8922a" stroke-width="1.2" marker-end="url(#arrowhead)"/>
+
+  <!-- 3. Browser → Nginx (direct HTTP for simplicity) -->
+  <line x1="140" y1="210" x2="238" y2="246" stroke="#c8922a" stroke-width="1.2" marker-end="url(#arrowhead)"/>
+
+  <!-- 4. Nginx → Next.js -->
+  <line x1="360" y1="246" x2="418" y2="210" stroke="#4a7adf" stroke-width="1.4" marker-end="url(#arrow-blue)"/>
+  <text x="390" y="222" text-anchor="middle" class="step-label" fill="#4a7adf">proxy</text>
+
+  <!-- 5. Next.js → Redis (enqueue) -->
+  <line x1="490" y1="240" x2="490" y2="298" stroke="#c04090" stroke-width="1.4" marker-end="url(#arrow-pink)"/>
+  <text x="506" y="272" class="step-label" fill="#c04090">enqueue</text>
+
+  <!-- 6. Redis → Worker (dequeue) -->
+  <line x1="560" y1="330" x2="618" y2="280" stroke="#c04090" stroke-width="1.4" marker-end="url(#arrow-pink)"/>
+  <text x="598" y="298" text-anchor="middle" class="step-label" fill="#c04090">dequeue</text>
+
+  <!-- 7. Worker → Claude API -->
+  <line x1="740" y1="260" x2="798" y2="318" stroke="#e04040" stroke-width="1.4" marker-end="url(#arrow-red)"/>
+  <text x="778" y="282" text-anchor="middle" class="step-label" fill="#e04040">translate</text>
+
+  <!-- 8. Worker → MongoDB (save PDF) -->
+  <line x1="740" y1="230" x2="798" y2="215" stroke="#4ab040" stroke-width="1.4" marker-end="url(#arrow-mongo)"/>
+  <text x="770" y="215" text-anchor="middle" class="step-label" fill="#4ab040">save PDF</text>
+
+  <!-- 9. Next.js → MongoDB (auth) -->
+  <line x1="560" y1="190" x2="798" y2="195" stroke="#4ab040" stroke-width="1.2" stroke-dasharray="5,3" marker-end="url(#arrow-mongo)"/>
+  <text x="680" y="183" text-anchor="middle" class="step-label" fill="#4ab040">auth / read PDF</text>
+
+  <!-- 10. Browser polls job status (dashed) -->
+  <path d="M 80 232 Q 80 430 410 370 Q 460 354 418 340" fill="none" stroke="#4a7adf" stroke-width="1" stroke-dasharray="5,3" marker-end="url(#arrow-blue)"/>
+  <text x="200" y="390" text-anchor="middle" class="step-label" fill="#4a7adf">poll status</text>
+
+  <!-- Step numbers -->
+  <circle cx="165" cy="162" r="8" fill="#1a1a2e" stroke="#c8922a" stroke-width="1"/>
+  <text x="165" y="166" text-anchor="middle" font-size="8" fill="#c8922a">1</text>
+
+  <circle cx="388" cy="218" r="8" fill="#1a1a2e" stroke="#4a7adf" stroke-width="1"/>
+  <text x="388" y="222" text-anchor="middle" font-size="8" fill="#4a7adf">2</text>
+
+  <circle cx="500" cy="270" r="8" fill="#1a1a2e" stroke="#c04090" stroke-width="1"/>
+  <text x="500" y="274" text-anchor="middle" font-size="8" fill="#c04090">3</text>
+
+  <circle cx="578" cy="295" r="8" fill="#1a1a2e" stroke="#c04090" stroke-width="1"/>
+  <text x="578" y="299" text-anchor="middle" font-size="8" fill="#c04090">4</text>
+
+  <circle cx="762" cy="275" r="8" fill="#1a1a2e" stroke="#e04040" stroke-width="1"/>
+  <text x="762" y="279" text-anchor="middle" font-size="8" fill="#e04040">5</text>
+
+  <circle cx="762" cy="218" r="8" fill="#1a1a2e" stroke="#4ab040" stroke-width="1"/>
+  <text x="762" y="222" text-anchor="middle" font-size="8" fill="#4ab040">6</text>
+
+</svg>
+</div>
+
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-line" style="background:#c8922a; height:2px"></div>
+    <span style="color:#c8922a">HTTPS Request</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-line" style="background:#4a7adf; height:2px"></div>
+    <span style="color:#4a7adf">App Traffic</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-line" style="background:#c04090; height:2px"></div>
+    <span style="color:#c04090">Job Queue</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-line" style="background:#e04040; height:2px"></div>
+    <span style="color:#e04040">LLM Call</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-line" style="background:#4ab040; height:2px"></div>
+    <span style="color:#4ab040">Database</span>
+  </div>
+  <div class="legend-item">
+    <svg width="28" height="12"><line x1="0" y1="6" x2="28" y2="6" stroke="#4a7adf" stroke-width="1.5" stroke-dasharray="5,3"/></svg>
+    <span style="color:#4a7adf">Polling</span>
+  </div>
+</div>
+
+<div style="margin-top: 48px; max-width: 680px; text-align: center;">
+  <p style="font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: #b8922a; margin-bottom: 16px;">Request Flow</p>
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; text-align: left;">
+    <div style="border: 1px solid #1a1a2e; padding: 16px; border-radius: 4px;">
+      <p style="font-size: 9px; color: #4a7adf; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 8px;">① Upload</p>
+      <p style="font-size: 10px; color: #8080a0; line-height: 1.6;">Browser → Cloudflare → Nginx → Next.js. File accepted, job added to Redis queue. jobId returned immediately.</p>
+    </div>
+    <div style="border: 1px solid #1a1a2e; padding: 16px; border-radius: 4px;">
+      <p style="font-size: 9px; color: #c04090; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 8px;">② Processing</p>
+      <p style="font-size: 10px; color: #8080a0; line-height: 1.6;">Worker picks job from Redis → calls Claude API for translation → builds PDF → saves to MongoDB.</p>
+    </div>
+    <div style="border: 1px solid #1a1a2e; padding: 16px; border-radius: 4px;">
+      <p style="font-size: 9px; color: #4ab040; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 8px;">③ Download</p>
+      <p style="font-size: 10px; color: #8080a0; line-height: 1.6;">Browser polls job status every 2s. When complete → download button appears → PDF served from MongoDB.</p>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top: 40px; font-size: 9px; letter-spacing: 0.2em; color: #303048; text-transform: uppercase;">NotarizePro · 2026</p>
+
+</body>
+</html>
